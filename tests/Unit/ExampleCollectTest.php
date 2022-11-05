@@ -26,6 +26,7 @@ class ExampleCollectTest extends TestCase
     public function test_collection_chunk() {
         $collection = collect([1, 2, 3, 4, 5, 6, 7]);
         $chunks = $collection->chunk(4);
+
         $result = $chunks->all();
         $this->assertEquals($result[0][1], 2);
     }
@@ -36,6 +37,7 @@ class ExampleCollectTest extends TestCase
         $chunks = $collection->chunkWhile(function ($value, $key, $chunk) {
             return $value === $chunk->last();
         });
+
         $result = $chunks->all(); // // [['A', 'A'], ['B', 'B'], ['C', 'C', 'C'], ['D']]
         $this->assertEquals($result[0][0], "A");
         $this->assertEquals($result[0][1], "A");
@@ -49,8 +51,8 @@ class ExampleCollectTest extends TestCase
             [4, 5, 6],
             [7, 8, 9],
         ]);
-
         $collapsed = $collection->collapse();
+
         $result = $collapsed->all(); // [1, 2, 3, 4, 5, 6, 7, 8, 9]
         $this->assertEquals($result[0], 1);
     }
@@ -58,6 +60,7 @@ class ExampleCollectTest extends TestCase
     public function test_collection_copy() {
         $collectionA = collect([1, 2, 3]);
         $collectionB = $collectionA->collect();
+
         $result = $collectionB->all(); // [1, 2, 3]
         $this->assertEquals($result[0], 1);
     }
@@ -68,8 +71,8 @@ class ExampleCollectTest extends TestCase
             yield 2;
             yield 3;
         });
-
         $collection = $lazyCollection->collect();
+
         $result = $collection->all(); // [1, 2, 3]
         $this->assertEquals($result[0], 1);
     }
@@ -85,8 +88,8 @@ class ExampleCollectTest extends TestCase
 
     public function test_collection_concat() {
         $collection = collect(['John Doe']);
-
         $concatenated = $collection->concat(['Jane Doe'])->concat(['name' => 'Johnny Doe']);
+
         $result = $concatenated->all(); // ['John Doe', 'Jane Doe', 'Johnny Doe']
         $this->assertEquals($result[0], "John Doe");
     }
@@ -97,22 +100,22 @@ class ExampleCollectTest extends TestCase
         $result1 = $collection->contains(function ($value, $key) {
             return $value > 5;
         }); // false
-        $this->assertEquals($result1, false);
 
         $collection = collect(['name' => 'Desk', 'price' => 100]);
 
         $result2 = $collection->contains('Desk'); // true
         $result3 = $collection->contains('New York'); // false
-        $this->assertEquals($result2, true);
-        $this->assertEquals($result3, false);
 
         $collection = collect([
             ['product' => 'Desk', 'price' => 200],
             ['product' => 'Chair', 'price' => 100],
         ]);
-
         $result4 = $collection->contains('product', '=', 'Bookcase'); // false
         $result5 = $collection->contains('product', '=', 'Desk'); // true
+
+        $this->assertEquals($result1, false);
+        $this->assertEquals($result2, true);
+        $this->assertEquals($result3, false);
         $this->assertEquals($result4, false);
         $this->assertEquals($result5, true);
 
@@ -130,6 +133,7 @@ class ExampleCollectTest extends TestCase
 
     public function test_collection_count() {
         $collection = collect([1, 2, 3, 4]);
+
         $result = $collection->count(); // 4
         $this->assertEquals($result, 4);
     }
@@ -139,15 +143,17 @@ class ExampleCollectTest extends TestCase
 
         $counted = $collection->countBy();
         $result = $counted->all(); // [1 => 1, 2 => 3, 3 => 1]
-        $this->assertEquals($result['1'], 1);
-        $this->assertEquals($result['2'], 3);
-        $this->assertEquals($result['3'], 1);
 
         $collection = collect(['alice@gmail.com', 'bob@yahoo.com', 'carlos@gmail.com']);
         $counted = $collection->countBy(function ($email) {
             return substr(strrchr($email, "@"), 1);
         });
         $result2 = $counted->all(); // ['gmail.com' => 2, 'yahoo.com' => 1]
+
+
+        $this->assertEquals($result['1'], 1);
+        $this->assertEquals($result['2'], 3);
+        $this->assertEquals($result['3'], 1);
         $this->assertEquals($result2['gmail.com'], 2);
         $this->assertEquals($result2['yahoo.com'], 1);
     }
