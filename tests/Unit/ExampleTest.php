@@ -11,8 +11,14 @@ class ExampleTest extends TestCase
      *
      * @return void
      */
-    public function test_that_true_is_true()
+    public function test_collection_reject()
     {
-        $this->assertTrue(true);
+        $collection = collect(['taylor', 'abigail', null])->map(function ($name) {
+            return strtoupper($name);
+        })->reject(function ($name) {
+            return empty($name);
+        });
+        $this->assertEquals($collection[0], "TAYLOR");
+        $this->assertEquals($collection[1], "ABIGAIL");
     }
 }
