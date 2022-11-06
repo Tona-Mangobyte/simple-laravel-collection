@@ -2,9 +2,16 @@
 
 use App\Helpers\Currency;
 use App\Helpers\ResourceCollection;
+use App\Models\User;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Collection;
+
+/*
+ * @doc https://laravel.com/docs/9.x/collections
+ * @see https://github.com/laravel/framework/blob/9.x/src/Illuminate/Collections/Collection.php
+ * **/
 
 class ExampleCollectTest extends TestCase
 {
@@ -1168,5 +1175,782 @@ class ExampleCollectTest extends TestCase
 
         $this->assertEquals(count($result), 4);
         $this->assertEquals($result[0], 2);
+    }
+
+    public function test_collection_shuffle() {
+        $result = collect([1, 2, 3, 4, 5])
+            ->shuffle()
+            ->all(); // generated randomly
+
+        $this->assertEquals(count($result), 5);
+    }
+
+    public function test_collection_skip() {
+        $result = collect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+            ->skip(4)
+            ->all(); // [5, 6, 7, 8, 9, 10]
+
+        $this->assertEquals(count($result), 6);
+        $this->assertEquals($result[4], 5);
+    }
+
+    public function test_collection_skipUntil() {
+        $collection = collect([1, 2, 3, 4]);
+
+        $result = $collection->skipUntil(function ($item) {
+            return $item >= 3;
+        })->all(); // [3, 4]
+
+        $result2 = $collection->skipUntil(3)->all(); // [3, 4]
+
+        $this->assertEquals($result[2], 3);
+        $this->assertEquals($result[3], 4);
+        $this->assertEquals($result2[2], 3);
+        $this->assertEquals($result2[3], 4);
+    }
+
+    public function test_collection_skipWhile() {
+        $collection = collect([1, 2, 3, 4]);
+        $result = $collection->skipWhile(function ($item) {
+            return $item <= 3;
+        })->all(); // [4]
+
+        $this->assertEquals($result[3], 4);
+    }
+
+    public function test_collection_slice() {
+        $collection = collect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
+        $result = $collection->slice(4)->all(); // [5, 6, 7, 8, 9, 10]
+        $result2 = $collection->slice(4, 2)->all(); // [5, 6]
+
+        $this->assertEquals($result[4], 5);
+
+        $this->assertEquals($result2[4], 5);
+        $this->assertEquals($result2[5], 6);
+    }
+
+    public function test_collection_sliding() {
+        $collection = collect([1, 2, 3, 4, 5]);
+
+        $result = $collection->sliding(2)
+            ->toArray(); // [[1, 2], [2, 3], [3, 4], [4, 5]]
+
+        $result2 = $collection->sliding(3, step: 2)
+            ->toArray(); // [[1, 2, 3], [3, 4, 5]]
+
+        $this->assertEquals($result[0][0], 1);
+        $this->assertEquals($result[0][1], 2);
+        $this->assertEquals($result[0][1], 2);
+
+        $this->assertEquals($result2[0][0], 1);
+        $this->assertEquals($result2[0][1], 2);
+        $this->assertEquals($result2[0][2], 3);
+        $this->assertEquals($result2[1][2], 3);
+        $this->assertEquals($result2[1][3], 4);
+        $this->assertEquals($result2[1][4], 5);
+    }
+
+    public function test_collection_sole() {
+        $result = collect([1, 2, 3, 4])->sole(function ($value, $key) {
+            return $value === 2;
+        }); // 2
+
+        $result2 = collect([
+            ['product' => 'Desk', 'price' => 200],
+            ['product' => 'Chair', 'price' => 100],
+        ])->sole('product', 'Chair'); // ['product' => 'Chair', 'price' => 100]
+
+        $this->assertEquals($result, 2);
+
+        $this->assertEquals($result2['product'], "Chair");
+        $this->assertEquals($result2['price'], 100);
+    }
+
+    public function test_collection_sort() {
+        $result = collect([5, 3, 1, 2, 4])->sort()
+            ->values()
+            ->all(); // [1, 2, 3, 4, 5]
+
+        $this->assertEquals($result[0], 1);
+        $this->assertEquals($result[1], 2);
+        $this->assertEquals($result[2], 3);
+        $this->assertEquals($result[3], 4);
+        $this->assertEquals($result[4], 5);
+    }
+
+    public function test_collection_sortBy() {
+        $result = collect([
+            ['name' => 'Desk', 'price' => 200],
+            ['name' => 'Chair', 'price' => 100],
+            ['name' => 'Bookcase', 'price' => 150],
+        ])->sortBy('price')
+            ->values()->all();
+        /*
+            [
+                ['name' => 'Chair', 'price' => 100],
+                ['name' => 'Bookcase', 'price' => 150],
+                ['name' => 'Desk', 'price' => 200],
+            ]
+        */
+
+        $result2 = collect([
+            ['title' => 'Item 1'],
+            ['title' => 'Item 12'],
+            ['title' => 'Item 3'],
+        ])->sortBy('title', SORT_NATURAL)
+            ->values()->all();
+        /*
+            [
+                ['title' => 'Item 1'],
+                ['title' => 'Item 3'],
+                ['title' => 'Item 12'],
+            ]
+        */
+
+        $result3 = collect([
+            ['name' => 'Desk', 'colors' => ['Black', 'Mahogany']],
+            ['name' => 'Chair', 'colors' => ['Black']],
+            ['name' => 'Bookcase', 'colors' => ['Red', 'Beige', 'Brown']],
+        ])->sortBy(function ($product, $key) {
+            return count($product['colors']);
+        })->values()->all();
+        /*
+            [
+                ['name' => 'Chair', 'colors' => ['Black']],
+                ['name' => 'Desk', 'colors' => ['Black', 'Mahogany']],
+                ['name' => 'Bookcase', 'colors' => ['Red', 'Beige', 'Brown']],
+            ]
+        */
+
+        $result4 = collect([
+            ['name' => 'Taylor Otwell', 'age' => 34],
+            ['name' => 'Abigail Otwell', 'age' => 30],
+            ['name' => 'Taylor Otwell', 'age' => 36],
+            ['name' => 'Abigail Otwell', 'age' => 32],
+        ])->sortBy([
+            ['name', 'asc'],
+            ['age', 'desc'],
+        ])->values()->all();
+        /*
+            [
+                ['name' => 'Abigail Otwell', 'age' => 32],
+                ['name' => 'Abigail Otwell', 'age' => 30],
+                ['name' => 'Taylor Otwell', 'age' => 36],
+                ['name' => 'Taylor Otwell', 'age' => 34],
+            ]
+        */
+
+        $result5 = collect([
+            ['name' => 'Taylor Otwell', 'age' => 34],
+            ['name' => 'Abigail Otwell', 'age' => 30],
+            ['name' => 'Taylor Otwell', 'age' => 36],
+            ['name' => 'Abigail Otwell', 'age' => 32],
+        ])->sortBy([
+            fn ($a, $b) => $a['name'] <=> $b['name'],
+            fn ($a, $b) => $b['age'] <=> $a['age'],
+        ])->values()->all();
+        /*
+            [
+                ['name' => 'Abigail Otwell', 'age' => 32],
+                ['name' => 'Abigail Otwell', 'age' => 30],
+                ['name' => 'Taylor Otwell', 'age' => 36],
+                ['name' => 'Taylor Otwell', 'age' => 34],
+            ]
+        */
+
+        $this->assertEquals($result[0]['name'], "Chair");
+        $this->assertEquals($result[0]['price'], 100);
+
+        $this->assertEquals($result2[0]['title'], "Item 1");
+
+        $this->assertEquals($result3[0]['name'], "Chair");
+        $this->assertEquals(count($result3[0]['colors']), 1);
+
+        $this->assertEquals($result4[0]['name'], "Abigail Otwell");
+        $this->assertEquals($result4[0]['age'], 32);
+
+        $this->assertEquals($result5[0]['name'], "Abigail Otwell");
+        $this->assertEquals($result5[0]['age'], 32);
+    }
+
+    public function test_collection_sortDesc() {
+        $result = collect([5, 3, 1, 2, 4])
+            ->sortDesc()
+            ->values()->all(); // [5, 4, 3, 2, 1]
+
+        $this->assertEquals($result[0], 5);
+    }
+
+    public function test_collection_sortKeys() {
+        $result = collect([
+            'id' => 22345,
+            'first' => 'John',
+            'last' => 'Doe',
+        ])->sortKeys()->all();
+        /*
+            [
+                'first' => 'John',
+                'id' => 22345,
+                'last' => 'Doe',
+            ]
+        */
+        $this->assertEquals($result['id'], 22345);
+        $this->assertEquals($result['first'], "John");
+        $this->assertEquals($result['last'], "Doe");
+    }
+
+    public function test_collection_sortKeysUsing() {
+        $result = collect([
+            'ID' => 22345,
+            'first' => 'John',
+            'last' => 'Doe',
+        ])->sortKeysUsing('strnatcasecmp')->all();
+        /*
+            [
+                'first' => 'John',
+                'ID' => 22345,
+                'last' => 'Doe',
+            ]
+        */
+
+        $this->assertEquals($result['ID'], 22345);
+        $this->assertEquals($result['first'], "John");
+        $this->assertEquals($result['last'], "Doe");
+    }
+
+    public function test_collection_splice() {
+        $collection = collect([1, 2, 3, 4, 5]);
+        $result = $collection->splice(2)
+            ->all(); // [3, 4, 5]
+        $result2 = $collection->all(); // [1, 2]
+
+        $collection2 = collect([1, 2, 3, 4, 5]);
+        $result3 = $collection2->splice(2, 1)->all(); // [3]
+        $result4 = $collection2->all(); // [1, 2, 4, 5]
+
+        $collection3 = collect([1, 2, 3, 4, 5]);
+        $result5 = $collection3->splice(2, 1, [10, 11])
+            ->all(); // [3]
+        $result6 = $collection3->all(); // [1, 2, 10, 11, 4, 5]
+
+        $this->assertEquals($result[0], 3);
+        $this->assertEquals($result[1], 4);
+        $this->assertEquals($result[2], 5);
+
+        $this->assertEquals($result2[0], 1);
+        $this->assertEquals($result2[1], 2);
+
+        $this->assertEquals($result3[0], 3);
+
+        $this->assertEquals($result4[0], 1);
+        $this->assertEquals($result4[1], 2);
+        $this->assertEquals($result4[2], 4);
+        $this->assertEquals($result4[3], 5);
+
+        $this->assertEquals($result5[0], 3);
+
+        $this->assertEquals($result6[0], 1);
+        $this->assertEquals($result6[5], 5);
+    }
+
+    public function test_collection_split() {
+        $result = collect([1, 2, 3, 4, 5])
+            ->split(3)
+            ->all(); // [[1, 2], [3, 4], [5]]
+
+        $this->assertEquals($result[0][0], 1);
+        $this->assertEquals($result[1][0], 3);
+        $this->assertEquals($result[2][0], 5);
+    }
+
+    public function test_collection_splitIn() {
+        $result = collect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+            ->splitIn(3)
+            ->all(); // [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10]]
+
+        $this->assertEquals($result[0][0], 1);
+        $this->assertEquals($result[1][4], 5);
+        $this->assertEquals($result[2][8], 9);
+    }
+
+    public function test_collection_sum() {
+        $result = collect([1, 2, 3, 4, 5])->sum(); // 15
+
+        $result2 = collect([
+            ['name' => 'JavaScript: The Good Parts', 'pages' => 176],
+            ['name' => 'JavaScript: The Definitive Guide', 'pages' => 1096],
+        ])->sum('pages'); // 1272
+
+        $result3 = collect([
+            ['name' => 'Chair', 'colors' => ['Black']],
+            ['name' => 'Desk', 'colors' => ['Black', 'Mahogany']],
+            ['name' => 'Bookcase', 'colors' => ['Red', 'Beige', 'Brown']],
+        ])->sum(function ($product) {
+            return count($product['colors']);
+        }); // 6
+
+        $this->assertEquals($result, 15);
+        $this->assertEquals($result2, 1272);
+        $this->assertEquals($result3, 6);
+    }
+
+    public function test_collection_take() {
+        $result = collect([0, 1, 2, 3, 4, 5])
+            ->take(3)
+            ->all(); // [0, 1, 2]
+
+        $result2 = collect([0, 1, 2, 3, 4, 5])
+            ->take(-2)->all();// [4, 5]
+
+        $this->assertEquals($result[0], 0);
+        $this->assertEquals($result[1], 1);
+        $this->assertEquals($result[2], 2);
+
+        $this->assertEquals($result2[4], 4);
+        $this->assertEquals($result2[5], 5);
+    }
+
+    public function test_collection_takeUntil() {
+        $result = collect([1, 2, 3, 4])->takeUntil(function ($item) {
+            return $item >= 3;
+        })->all(); // [1, 2]
+
+        $result2 = collect([1, 2, 3, 4])->takeUntil(3)->all(); // [1, 2]
+
+        $this->assertEquals($result[0], 1);
+        $this->assertEquals($result[1], 2);
+
+        $this->assertEquals($result2[0], 1);
+        $this->assertEquals($result2[1], 2);
+    }
+
+    public function test_collection_takeWhile() {
+        $result = collect([1, 2, 3, 4])->takeWhile(function ($item) {
+            return $item < 3;
+        })->all(); // [1, 2]
+
+        $this->assertEquals($result[0], 1);
+        $this->assertEquals($result[1], 2);
+    }
+
+    public function test_collection_tap() {
+        $result = collect([2, 4, 3, 1, 5])
+            ->sort()
+            ->tap(function ($collection) {
+                Log::debug('Values after sorting', $collection->values()->all());
+            })
+            ->shift(); // 1
+        $this->assertEquals($result, 1);
+    }
+
+    public function test_collection_times() {
+        $result = Collection::times(10, function ($number) {
+            return $number * 9;
+        })->all(); // [9, 18, 27, 36, 45, 54, 63, 72, 81, 90]
+
+        $this->assertEquals($result[0], 9);
+        $this->assertEquals($result[9], 90);
+    }
+
+    public function test_collection_toArray() {
+        $result = collect(['name' => 'Desk', 'price' => 200])
+            ->toArray();
+        /*
+            [
+                ['name' => 'Desk', 'price' => 200],
+            ]
+        */
+
+        $this->assertEquals($result['name'], "Desk");
+        $this->assertEquals($result['price'], 200);
+    }
+
+    public function test_collection_transform() {
+        $result = collect([1, 2, 3, 4, 5])
+            ->transform(function ($item, $key) {
+                    return $item * 2;
+            })->all(); // [2, 4, 6, 8, 10]
+
+        $this->assertEquals($result[0], 2);
+        $this->assertEquals($result[1], 4);
+        $this->assertEquals($result[2], 6);
+        $this->assertEquals($result[3], 8);
+        $this->assertEquals($result[4], 10);
+    }
+
+    public function test_collection_undot() {
+        $result = collect([
+            'name.first_name' => 'Marie',
+            'name.last_name' => 'Valentine',
+            'address.line_1' => '2992 Eagle Drive',
+            'address.line_2' => '',
+            'address.suburb' => 'Detroit',
+            'address.state' => 'MI',
+            'address.postcode' => '48219'
+        ])->undot()->toArray();
+        /*
+            [
+                "name" => [
+                    "first_name" => "Marie",
+                    "last_name" => "Valentine",
+                ],
+                "address" => [
+                    "line_1" => "2992 Eagle Drive",
+                    "line_2" => "",
+                    "suburb" => "Detroit",
+                    "state" => "MI",
+                    "postcode" => "48219",
+                ],
+            ]
+        */
+
+        $this->assertEquals($result['name']['first_name'], "Marie");
+        $this->assertEquals($result['name']['last_name'], "Valentine");
+        $this->assertEquals($result['address']['postcode'], "48219");
+    }
+
+    public function test_collection_union() {
+        $result = collect([1 => ['a'], 2 => ['b']])
+            ->union([3 => ['c'], 1 => ['d']])
+            ->all(); // [1 => ['a'], 2 => ['b'], 3 => ['c']]
+
+        $this->assertEquals($result[1][0], "a");
+        $this->assertEquals($result[2][0], "b");
+        $this->assertEquals($result[3][0], "c");
+    }
+
+    public function test_collection_unique() {
+        $result = collect([1, 1, 2, 2, 3, 4, 2])
+            ->unique()->values()->all(); // [1, 2, 3, 4]
+
+        $result2 = collect([
+            ['name' => 'iPhone 6', 'brand' => 'Apple', 'type' => 'phone'],
+            ['name' => 'iPhone 5', 'brand' => 'Apple', 'type' => 'phone'],
+            ['name' => 'Apple Watch', 'brand' => 'Apple', 'type' => 'watch'],
+            ['name' => 'Galaxy S6', 'brand' => 'Samsung', 'type' => 'phone'],
+            ['name' => 'Galaxy Gear', 'brand' => 'Samsung', 'type' => 'watch'],
+        ])->unique('brand')->values()->all();
+        /*
+            [
+                ['name' => 'iPhone 6', 'brand' => 'Apple', 'type' => 'phone'],
+                ['name' => 'Galaxy S6', 'brand' => 'Samsung', 'type' => 'phone'],
+            ]
+        */
+
+        $result3 = collect([
+            ['name' => 'iPhone 6', 'brand' => 'Apple', 'type' => 'phone'],
+            ['name' => 'iPhone 5', 'brand' => 'Apple', 'type' => 'phone'],
+            ['name' => 'Apple Watch', 'brand' => 'Apple', 'type' => 'watch'],
+            ['name' => 'Galaxy S6', 'brand' => 'Samsung', 'type' => 'phone'],
+            ['name' => 'Galaxy Gear', 'brand' => 'Samsung', 'type' => 'watch'],
+        ])->unique(function ($item) {
+            return $item['brand'].$item['type'];
+        })->values()->all();
+        /*
+            [
+                ['name' => 'iPhone 6', 'brand' => 'Apple', 'type' => 'phone'],
+                ['name' => 'Apple Watch', 'brand' => 'Apple', 'type' => 'watch'],
+                ['name' => 'Galaxy S6', 'brand' => 'Samsung', 'type' => 'phone'],
+                ['name' => 'Galaxy Gear', 'brand' => 'Samsung', 'type' => 'watch'],
+            ]
+        */
+
+        $this->assertEquals($result[0], 1);
+        $this->assertEquals($result[1], 2);
+        $this->assertEquals($result[2], 3);
+        $this->assertEquals($result[3], 4);
+
+        $this->assertEquals($result2[0]['name'], "iPhone 6");
+        $this->assertEquals($result2[1]['name'], "Galaxy S6");
+
+        $this->assertEquals($result3[0]['name'], "iPhone 6");
+        $this->assertEquals($result3[0]['brand'], "Apple");
+        $this->assertEquals($result3[0]['type'], "phone");
+    }
+
+    public function test_collection_unless() {
+        $result = collect([1, 2, 3])
+            ->unless(true, function ($collection) {
+                return $collection->push(4);
+                })
+            ->unless(false, function ($collection) {
+                return $collection->push(5);
+            })->all(); // [1, 2, 3, 5]
+
+        $result2 = collect([1, 2, 3])
+            ->unless(true, function ($collection) {
+                return $collection->push(4);
+            }, function ($collection) {
+                return $collection->push(5);
+            })->all(); // [1, 2, 3, 5]
+
+        $this->assertEquals(count($result), 4);
+        $this->assertEquals(count($result2), 4);
+    }
+
+    public function test_collection_value() {
+        $result = collect([
+            ['product' => 'Desk', 'price' => 200],
+            ['product' => 'Speaker', 'price' => 400],
+        ])->value('price'); // 200
+
+        $this->assertEquals($result, 200);
+    }
+
+    public function test_collection_values() {
+        $result = collect([
+            10 => ['product' => 'Desk', 'price' => 200],
+            11 => ['product' => 'Desk', 'price' => 200],
+        ])->values()->all();
+        /*
+            [
+                0 => ['product' => 'Desk', 'price' => 200],
+                1 => ['product' => 'Desk', 'price' => 200],
+            ]
+        */
+
+        $this->assertEquals($result[0]['product'], "Desk");
+        $this->assertEquals($result[0]['price'], 200);
+    }
+
+    public function test_collection_when() {
+        $result = collect([1, 2, 3])
+            ->when(true, function ($collection, $value) {
+                return $collection->push(4);
+            })
+            ->when(false, function ($collection, $value) {
+                return $collection->push(5);
+            })->all(); // [1, 2, 3, 4]
+
+        $result2 = collect([1, 2, 3])
+            ->when(false, function ($collection, $value) {
+                return $collection->push(4);
+            }, function ($collection) {
+                return $collection->push(5);
+            })->all(); // [1, 2, 3, 5]
+
+        $this->assertEquals(count($result), 4);
+        $this->assertEquals($result[0], 1);
+        $this->assertEquals($result[3], 4);
+
+        $this->assertEquals(count($result2), 4);
+        $this->assertEquals($result2[0], 1);
+        $this->assertEquals($result2[3], 5);
+    }
+
+    public function test_collection_whenEmpty() {
+        $result = collect(['Michael', 'Tom'])
+            ->whenEmpty(function ($collection) {
+                return $collection->push('Adam');
+            })->all(); // ['Michael', 'Tom']
+
+        $result2 = collect()->whenEmpty(function ($collection) {
+            return $collection->push('Adam');
+        })->all(); // ['Adam']
+
+
+        $result3 = collect(['Michael', 'Tom'])->whenEmpty(function ($collection) {
+            return $collection->push('Adam');
+        }, function ($collection) {
+            return $collection->push('Taylor');
+        })->all(); // ['Michael', 'Tom', 'Taylor']
+
+        $this->assertEquals($result[0], "Michael");
+        $this->assertEquals($result[1], "Tom");
+
+        $this->assertEquals($result2[0], "Adam");
+
+        $this->assertEquals($result3[0], "Michael");
+        $this->assertEquals($result3[1], "Tom");
+        $this->assertEquals($result3[2], "Taylor");
+    }
+
+    public function test_collection_whenNotEmpty() {
+        $result = collect(['michael', 'tom'])->whenNotEmpty(function ($collection) {
+            return $collection->push('adam');
+        })->all(); // ['michael', 'tom', 'adam']
+
+        $result2 = collect()->whenNotEmpty(function ($collection) {
+            return $collection->push('adam');
+        })->all(); // []
+
+        $result3 = collect()->whenNotEmpty(function ($collection) {
+            return $collection->push('adam');
+        }, function ($collection) {
+            return $collection->push('taylor');
+        })->all(); // ['taylor']
+
+        $this->assertEquals($result[0], "michael");
+        $this->assertEquals($result[1], "tom");
+        $this->assertEquals($result[2], "adam");
+
+        $this->assertEquals(count($result2), 0);
+
+        $this->assertEquals(count($result3), 1);
+        $this->assertEquals($result3[0], "taylor");
+    }
+
+    public function test_collection_where() {
+        $result = collect([
+            ['product' => 'Desk', 'price' => 200],
+            ['product' => 'Chair', 'price' => 100],
+            ['product' => 'Bookcase', 'price' => 150],
+            ['product' => 'Door', 'price' => 100],
+        ])->where('price', 100)->all();
+        /*
+            [
+                ['product' => 'Chair', 'price' => 100],
+                ['product' => 'Door', 'price' => 100],
+            ]
+        */
+
+        $result2 = collect([
+            ['name' => 'Jim', 'deleted_at' => '2019-01-01 00:00:00'],
+            ['name' => 'Sally', 'deleted_at' => '2019-01-02 00:00:00'],
+            ['name' => 'Sue', 'deleted_at' => null],
+        ])->where('deleted_at', '!=', null)
+            ->all();
+        /*
+            [
+                ['name' => 'Jim', 'deleted_at' => '2019-01-01 00:00:00'],
+                ['name' => 'Sally', 'deleted_at' => '2019-01-02 00:00:00'],
+            ]
+        */
+
+        $this->assertEquals($result[1]['product'], "Chair");
+        $this->assertEquals($result[3]['price'], 100);
+
+        $this->assertEquals($result2[0]['name'], "Jim");
+        $this->assertEquals($result2[1]['name'], "Sally");
+    }
+
+    public function test_collection_whereBetween() {
+        $result = collect([
+            ['product' => 'Desk', 'price' => 200],
+            ['product' => 'Chair', 'price' => 80],
+            ['product' => 'Bookcase', 'price' => 150],
+            ['product' => 'Pencil', 'price' => 30],
+            ['product' => 'Door', 'price' => 100],
+        ])->whereBetween('price', [100, 200])->all();
+        /*
+            [
+                ['product' => 'Desk', 'price' => 200],
+                ['product' => 'Bookcase', 'price' => 150],
+                ['product' => 'Door', 'price' => 100],
+            ]
+        */
+
+        $this->assertEquals($result[0]['product'], "Desk");
+        $this->assertEquals($result[0]['price'], 200);
+    }
+
+    public function test_collection_whereIn() {
+        $result = collect([
+            ['product' => 'Desk', 'price' => 200],
+            ['product' => 'Chair', 'price' => 100],
+            ['product' => 'Bookcase', 'price' => 150],
+            ['product' => 'Door', 'price' => 100],
+        ])->whereIn('price', [150, 200])->all();
+        /*
+            [
+                ['product' => 'Desk', 'price' => 200],
+                ['product' => 'Bookcase', 'price' => 150],
+            ]
+        */
+
+        $this->assertEquals($result[0]['product'], "Desk");
+        $this->assertEquals($result[0]['price'], 200);
+    }
+
+    public function test_collection_whereInstanceOf() {
+        $result = collect([
+            new User,
+            new User,
+            new Currency("Simple"),
+        ])->whereInstanceOf(User::class)->all(); // [App\Models\User, App\Models\User]
+        $this->assertEquals(count($result), 2);
+    }
+
+    public function test_collection_whereNotBetween() {
+        $result = collect([
+            ['product' => 'Desk', 'price' => 200],
+            ['product' => 'Chair', 'price' => 80],
+            ['product' => 'Bookcase', 'price' => 150],
+            ['product' => 'Pencil', 'price' => 30],
+            ['product' => 'Door', 'price' => 100],
+        ])->whereNotBetween('price', [100, 200])->all();
+        /*
+            [
+                ['product' => 'Chair', 'price' => 80],
+                ['product' => 'Pencil', 'price' => 30],
+            ]
+        */
+        $this->assertEquals($result[1]['product'], "Chair");
+        $this->assertEquals($result[1]['price'], 80);
+        $this->assertEquals($result[3]['product'], "Pencil");
+        $this->assertEquals($result[3]['price'], 30);
+    }
+
+    public function test_collection_whereNotIn() {
+        $result = collect([
+            ['product' => 'Desk', 'price' => 200],
+            ['product' => 'Chair', 'price' => 100],
+            ['product' => 'Bookcase', 'price' => 150],
+            ['product' => 'Door', 'price' => 100],
+        ])->whereNotIn('price', [150, 200])->all();
+        /*
+            [
+                ['product' => 'Chair', 'price' => 100],
+                ['product' => 'Door', 'price' => 100],
+            ]
+        */
+
+        $this->assertEquals($result[1]['product'], "Chair");
+        $this->assertEquals($result[1]['price'], 100);
+        $this->assertEquals($result[3]['product'], "Door");
+        $this->assertEquals($result[3]['price'], 100);
+    }
+
+    public function test_collection_whereNotNull() {
+        $result = collect([
+            ['name' => 'Desk'],
+            ['name' => null],
+            ['name' => 'Bookcase'],
+        ])->whereNotNull('name')->all();
+        /*
+            [
+                ['name' => 'Desk'],
+                ['name' => 'Bookcase'],
+            ]
+        */
+
+        $this->assertEquals($result[0]['name'], "Desk");
+        $this->assertEquals($result[2]['name'], "Bookcase");
+    }
+
+    public function test_collection_whereNull() {
+        $result = collect([
+            ['name' => 'Desk'],
+            ['name' => null],
+            ['name' => 'Bookcase'],
+        ])->whereNull('name')->all();
+        /*
+            [
+                ['name' => null],
+            ]
+        */
+
+        $this->assertNull($result[1]['name']);
+    }
+
+    public function test_collection_zip() {
+        $result = collect(['Chair', 'Desk'])
+            ->zip([100, 200])
+            ->all(); // [['Chair', 100], ['Desk', 200]]
+        $this->assertEquals($result[0][0], "Chair");
+        $this->assertEquals($result[0][1], 100);
+        $this->assertEquals($result[1][0], "Desk");
+        $this->assertEquals($result[1][1], 200);
     }
 }
