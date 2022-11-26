@@ -339,4 +339,171 @@ class ExampleArrTest extends TestCase
         $this->assertEquals($sorted[++$i], 'Table');
         $this->assertEquals($sorted[++$i], 'Chair');
     }
+
+    public function test_arr_sortRecursive() {
+        $array = [
+            ['Roman', 'Taylor', 'Li'],
+            ['PHP', 'Ruby', 'JavaScript'],
+            ['one' => 1, 'two' => 2, 'three' => 3],
+        ];
+        $sorted = Arr::sortRecursive($array);
+        /*
+            [
+                ['JavaScript', 'PHP', 'Ruby'],
+                ['one' => 1, 'three' => 3, 'two' => 2],
+                ['Li', 'Roman', 'Taylor'],
+            ]
+        */
+        $this->assertEquals($sorted[0][0], 'JavaScript');
+        $this->assertEquals($sorted[0][1], 'PHP');
+        $this->assertEquals($sorted[0][2], 'Ruby');
+    }
+
+    public function test_arr_toCssClasses() {
+        $isActive = false;
+        $hasError = true;
+
+        $array = ['p-4', 'font-bold' => $isActive, 'bg-red' => $hasError]; // 'p-4 bg-red'
+        $classes = Arr::toCssClasses($array);
+        $this->assertEquals($classes, 'p-4 bg-red');
+    }
+
+    public function test_arr_undot() {
+        $array = [
+            'user.name' => 'Kevin Malone',
+            'user.occupation' => 'Accountant',
+        ];
+
+        $array = Arr::undot($array); // ['user' => ['name' => 'Kevin Malone', 'occupation' => 'Accountant']]
+        $this->assertEquals($array['user']['name'], 'Kevin Malone');
+        $this->assertEquals($array['user']['occupation'], 'Accountant');
+    }
+
+    public function test_arr_where() {
+        $array = [100, '200', 300, '400', 500];
+
+        $filtered = Arr::where($array, function ($value, $key) {
+            return is_string($value);
+        }); // [1 => '200', 3 => '400']
+        $filtered2 = Arr::where($array, fn ($value, $key) => is_string($value)); // [1 => '200', 3 => '400']
+        $this->assertEquals($filtered[1], '200');
+        $this->assertEquals($filtered[3], '400');
+        $this->assertEquals($filtered2[3], '400');
+    }
+
+    public function test_arr_whereNotNull() {
+        $array = [0, null];
+        $filtered = Arr::whereNotNull($array); // [0 => 0]
+        $this->assertEquals($filtered[0], 0);
+    }
+
+    public function test_arr_wrap() {
+        $string = 'Laravel';
+
+        $array = Arr::wrap($string); // ['Laravel']
+        $array2 = Arr::wrap(null); // []
+        $this->assertEquals($array[0], 'Laravel');
+        $this->assertEmpty($array2);
+    }
+
+    public function test_data_fill() {
+        $data = ['products' => ['desk' => ['price' => 100]]];
+
+        data_fill($data, 'products.desk.price', 200);
+        // ['products' => ['desk' => ['price' => 100]]]
+
+        data_fill($data, 'products.desk.discount', 10);
+        // ['products' => ['desk' => ['price' => 100, 'discount' => 10]]]
+
+
+        $data2 = [
+            'products' => [
+                ['name' => 'Desk 1', 'price' => 100],
+                ['name' => 'Desk 2'],
+            ],
+        ];
+        data_fill($data2, 'products.*.price', 200);
+        /*
+            [
+                'products' => [
+                    ['name' => 'Desk 1', 'price' => 100],
+                    ['name' => 'Desk 2', 'price' => 200],
+                ],
+            ]
+        */
+
+
+        $this->assertEquals($data['products']['desk']['price'], 100);
+        $this->assertEquals($data['products']['desk']['discount'], 10);
+
+        $this->assertEquals($data2['products'][0]['price'], 100);
+        $this->assertEquals($data2['products'][1]['price'], 200);
+    }
+
+    public function test_data_get() {
+        $data = ['products' => ['desk' => ['price' => 100]]];
+
+        $price = data_get($data, 'products.desk.price'); // 100
+        $discount = data_get($data, 'products.desk.discount', 0); // 0
+
+        $data2 = [
+            'product-one' => ['name' => 'Desk 1', 'price' => 100],
+            'product-two' => ['name' => 'Desk 2', 'price' => 150],
+        ];
+        $result = data_get($data2, '*.name'); // ['Desk 1', 'Desk 2'];
+
+        $this->assertEquals($price, 100);
+        $this->assertEquals($discount, 0);
+
+        $this->assertEquals($result[0], 'Desk 1');
+        $this->assertEquals($result[1], 'Desk 2');
+    }
+
+    public function test_data_set() {
+        $data = ['products' => ['desk' => ['price' => 100]]];
+        $result = data_set($data, 'products.desk.price', 200); // ['products' => ['desk' => ['price' => 200]]]
+
+        $data2 = [
+            'products' => [
+                ['name' => 'Desk 1', 'price' => 100],
+                ['name' => 'Desk 2', 'price' => 150],
+            ],
+        ];
+        $result2 = data_set($data2, 'products.*.price', 200);
+        /*
+            [
+                'products' => [
+                    ['name' => 'Desk 1', 'price' => 200],
+                    ['name' => 'Desk 2', 'price' => 200],
+                ],
+            ]
+        */
+
+        $data3 = ['products' => ['desk' => ['price' => 100]]];
+
+        $result3 = data_set($data3, 'products.desk.price', 200, overwrite: false);
+        // ['products' => ['desk' => ['price' => 100]]]
+
+        $this->assertEquals($result['products']['desk']['price'], 200);
+
+        $this->assertEquals($result2['products'][0]['name'], 'Desk 1');
+        $this->assertEquals($result2['products'][0]['price'], 200);
+        $this->assertEquals($result2['products'][1]['price'], 200);
+
+        $this->assertEquals($result3['products']['desk']['price'], 100);
+    }
+
+    public function test_head() {
+        $array = [100, 200, 300];
+        $first = head($array); // 100
+
+        $this->assertEquals($first, 100);
+    }
+
+    public function test_last() {
+        $array = [100, 200, 300];
+
+        $last = last($array); // 300
+        $this->assertEquals($last, 300);
+    }
 }
